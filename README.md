@@ -1,6 +1,27 @@
 # improv_wifi
 
-A new Flutter plugin project.
+A Flutter plugin for Improv WiFi provisioning via BLE.
+
+## iOS – Improv SDK submodule
+
+The iOS implementation uses the [Improv WiFi iOS SDK](https://github.com/improv-wifi/sdk-iOS) as a **git submodule** at `ios/improv_wifi/sdk-iOS`.
+
+**Clone with submodules:**
+```bash
+git clone --recurse-submodules <repo-url>
+```
+
+**If you already cloned:**
+```bash
+git submodule update --init --recursive
+```
+
+**Update the SDK to a different version:**
+```bash
+cd ios/improv_wifi/sdk-iOS
+git fetch --tags && git checkout 0.0.6   # or another tag
+cd - && git add ios/improv_wifi/sdk-iOS && git commit -m "chore(ios): pin Improv SDK to 0.0.6"
+```
 
 ## Getting Started
 
