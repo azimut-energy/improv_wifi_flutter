@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "improv_wifi",
     platforms: [
-        .iOS("13.0")
+        .iOS("15.0")
     ],
     products: [
         .library(name: "improv-wifi", targets: ["improv_wifi"])
@@ -14,8 +14,14 @@ let package = Package(
     dependencies: [],
     targets: [
         .target(
+            name: "ImproviOS",
+            path: "sdk-iOS/Improv-iOS",
+            exclude: ["Improv_iOS.docc", "Improv_iOS.h"],
+            sources: ["."]
+        ),
+        .target(
             name: "improv_wifi",
-            dependencies: [],
+            dependencies: ["ImproviOS"],
             resources: [
                 // If your plugin requires a privacy manifest, for example if it uses any required
                 // reason APIs, update the PrivacyInfo.xcprivacy file to describe your plugin's

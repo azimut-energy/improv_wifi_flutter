@@ -2,7 +2,11 @@ import Flutter
 import UIKit
 import CoreBluetooth
 import Combine
+#if canImport(ImproviOS)
+import ImproviOS
+#elseif canImport(Improv_iOS)
 import Improv_iOS
+#endif
 
 public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
