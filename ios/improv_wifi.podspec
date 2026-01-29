@@ -15,8 +15,8 @@ A Flutter plugin that wraps the Improv WiFi iOS SDK for BLE-based WiFi provision
   s.source           = { :path => '.' }
   s.source_files = 'improv_wifi/Sources/improv_wifi/**/*'
   s.dependency 'Flutter'
-  s.dependency 'ImprovWiFi', '~> 1.0'
-  s.platform = :ios, '13.0'
+  s.dependency 'Improv-iOS', '~> 0.0.6'
+  s.platform = :ios, '15.0'
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
