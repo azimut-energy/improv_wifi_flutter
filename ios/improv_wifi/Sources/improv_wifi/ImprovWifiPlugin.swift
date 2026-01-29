@@ -2,7 +2,7 @@ import Flutter
 import UIKit
 import CoreBluetooth
 import Combine
-import ImprovWiFi
+import Improv_iOS
 
 public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
@@ -45,7 +45,9 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             ImprovManager.shared.connectToDevice(peripheral)
             result(nil)
         case "disconnectDevice":
-            ImprovManager.shared.disconnectDevice()
+            if let peripheral = ImprovManager.shared.connectedDevice {
+                ImprovManager.shared.disconnectFromDevice(peripheral)
+            }
             result(nil)
         case "identifyDevice":
             ImprovManager.shared.identifyDevice()
@@ -81,31 +83,31 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     // MARK: - Private
 
     private func setupSubscriptions() {
-        let manager = ImprovManager.shared
+        guard let manager = ImprovManager.shared as? ImprovManager else { return }
 
         // Subscribe to all @Published properties and send consolidated state updates
         manager.$foundDevices
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: [String: CBPeripheral]) in self?.sendStateUpdate() }
             .store(in: &cancellables)
 
         manager.$connectedDevice
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: CBPeripheral?) in self?.sendStateUpdate() }
             .store(in: &cancellables)
 
         manager.$bluetoothState
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: CBManagerState) in self?.sendStateUpdate() }
             .store(in: &cancellables)
 
         manager.$deviceState
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: DeviceState?) in self?.sendStateUpdate() }
             .store(in: &cancellables)
 
         manager.$errorState
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: ErrorState?) in self?.sendStateUpdate() }
             .store(in: &cancellables)
 
         manager.$lastResult
-            .sink { [weak self] _ in self?.sendStateUpdate() }
+            .sink { [weak self] (_: [String]?) in self?.sendStateUpdate() }
             .store(in: &cancellables)
     }
 
@@ -114,14 +116,14 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
         let manager = ImprovManager.shared
 
-        // Update peripheral map
+        // Update peripheral map (SDK uses [String: CBPeripheral])
         peripheralMap.removeAll()
-        for peripheral in manager.foundDevices {
+        for peripheral in manager.foundDevices.values {
             peripheralMap[peripheral.identifier.uuidString] = peripheral
         }
 
         // Build found devices list
-        let foundDevices: [[String: Any?]] = manager.foundDevices.map { peripheral in
+        let foundDevices: [[String: Any?]] = manager.foundDevices.values.map { peripheral in
             return [
                 "id": peripheral.identifier.uuidString,
                 "name": peripheral.name
