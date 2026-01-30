@@ -89,30 +89,41 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private func setupSubscriptions() {
         guard let manager = ImprovManager.shared as? ImprovManager else { return }
 
-        // Subscribe to all @Published properties and send consolidated state updates
-        manager.$foundDevices
-            .sink { [weak self] (_: [String: CBPeripheral]) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
+        // Combine all @Published properties into a single stream to avoid duplicate emissions
+        Publishers.CombineLatest3(
+            Publishers.CombineLatest3(
+                manager.$foundDevices,
+                manager.$connectedDevice,
+                manager.$bluetoothState
+            ),
+            Publishers.CombineLatest(
+                manager.$deviceState,
+                manager.$errorState
+            ),
+            manager.$lastResult
+        )
+        .removeDuplicates { prev, curr in
+            print("prev: \(prev), curr: \(curr)")
+            // Compare all values to detect actual changes
+            let (prevGroup1, prevGroup2, prevLastResult) = prev
+            let (currGroup1, currGroup2, currLastResult) = curr
+            let (prevDevices, prevConnected, prevBluetooth) = prevGroup1
+            let (currDevices, currConnected, currBluetooth) = currGroup1
+            let (prevDeviceState, prevErrorState) = prevGroup2
+            let (currDeviceState, currErrorState) = currGroup2
 
-        manager.$connectedDevice
-            .sink { [weak self] (_: CBPeripheral?) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
-
-        manager.$bluetoothState
-            .sink { [weak self] (_: CBManagerState) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
-
-        manager.$deviceState
-            .sink { [weak self] (_: DeviceState?) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
-
-        manager.$errorState
-            .sink { [weak self] (_: ErrorState?) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
-
-        manager.$lastResult
-            .sink { [weak self] (_: [String]?) in self?.sendStateUpdate() }
-            .store(in: &cancellables)
+            return prevDevices.keys == currDevices.keys &&
+                   prevConnected?.identifier == currConnected?.identifier &&
+                   prevBluetooth == currBluetooth &&
+                   prevDeviceState == currDeviceState &&
+                   prevErrorState == currErrorState &&
+                   prevLastResult == currLastResult
+        }
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.sendStateUpdate()
+        }
+        .store(in: &cancellables)
     }
 
     private func sendStateUpdate() {
