@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:improv_wifi/improv_wifi.dart';
 
+import 'wifi_info_service.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -17,17 +19,38 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ImprovState? _state;
   StreamSubscription<ImprovState>? _subscription;
-  final _ssidController = TextEditingController();
+  final _ssidController = TextEditingController(
+    text: "FRITZ!Box 7530 BG",
+  );
   final _passwordController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _subscription = ImprovWifi.stateStream.listen((state) {
+      print("State: $state");
       setState(() {
         _state = state;
       });
     });
+    // Defer so the platform channel is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prefillSsid());
+  }
+
+  Future<void> _prefillSsid({BuildContext? context}) async {
+    final ssid = await WifiInfoService.getCurrentSsid();
+    if (ssid != null && ssid.isNotEmpty && mounted) {
+      _ssidController.text = ssid;
+    } else if (context != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not get WiFi name. Grant location permission and try again.',
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -42,9 +65,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Improv WiFi Example'),
-        ),
+        appBar: AppBar(title: const Text('Improv WiFi Example')),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -110,20 +131,24 @@ class _MyAppState extends State<MyApp> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Found Devices (${devices.length}):',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Found Devices (${devices.length}):',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             if (devices.isEmpty)
               const Text('No devices found')
             else
-              ...devices.map((device) => ListTile(
-                    title: Text(device.name ?? 'Unknown'),
-                    subtitle: Text(device.id),
-                    trailing: ElevatedButton(
-                      onPressed: () => ImprovWifi.connectToDevice(device.id),
-                      child: const Text('Connect'),
-                    ),
-                  )),
+              ...devices.map(
+                (device) => ListTile(
+                  title: Text(device.name ?? 'Unknown'),
+                  subtitle: Text(device.id),
+                  trailing: ElevatedButton(
+                    onPressed: () => ImprovWifi.connectToDevice(device.id),
+                    child: const Text('Connect'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -155,15 +180,30 @@ class _MyAppState extends State<MyApp> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('WiFi Credentials:',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'WiFi Credentials:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            TextField(
-              controller: _ssidController,
-              decoration: const InputDecoration(
-                labelText: 'SSID',
-                border: OutlineInputBorder(),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ssidController,
+                    decoration: const InputDecoration(
+                      labelText: 'SSID',
+                      border: OutlineInputBorder(),
+                    ),
+                    
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _prefillSsid(context: context),
+                  tooltip: 'Use current network',
+                  icon: const Icon(Icons.wifi_find),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextField(
@@ -178,9 +218,9 @@ class _MyAppState extends State<MyApp> {
             ElevatedButton(
               onPressed: isConnected
                   ? () => ImprovWifi.sendWifi(
-                        _ssidController.text,
-                        _passwordController.text,
-                      )
+                      _ssidController.text,
+                      _passwordController.text,
+                    )
                   : null,
               child: const Text('Send WiFi'),
             ),

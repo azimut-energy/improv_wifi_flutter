@@ -49,5 +49,7 @@
 	<string>This app uses Bluetooth to discover and provision Improv WiFi devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to discover and provision Improv WiFi devices.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Required to detect the current WiFi network name for pre-filling credentials when provisioning devices.</string>
 </dict>
 </plist>
