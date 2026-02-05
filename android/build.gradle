@@ -46,6 +46,7 @@ android {
     }
 
     dependencies {
-        implementation("org.openhomefoundation.improv-wifi:sdk-android:0.1.1")
+        // SDK classes are now included directly in the plugin source
+        // No external dependency needed
     }
 }

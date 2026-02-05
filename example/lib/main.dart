@@ -144,7 +144,10 @@ class _MyAppState extends State<MyApp> {
                   title: Text(device.name ?? 'Unknown'),
                   subtitle: Text(device.id),
                   trailing: ElevatedButton(
-                    onPressed: () => ImprovWifi.connectToDevice(device.id),
+                    onPressed: () {
+                      print('[UI] Connect button pressed for device: ${device.id}');
+                      ImprovWifi.connectToDevice(device.id);
+                    },
                     child: const Text('Connect'),
                   ),
                 ),

@@ -179,7 +179,14 @@ class ImprovWifi {
 
   /// Connect to an Improv WiFi device by its ID.
   static Future<void> connectToDevice(String deviceId) async {
-    await _methodChannel.invokeMethod('connectToDevice', {'deviceId': deviceId});
+    print('[ImprovWifi] connectToDevice called with deviceId: $deviceId');
+    try {
+      await _methodChannel.invokeMethod('connectToDevice', {'deviceId': deviceId});
+      print('[ImprovWifi] connectToDevice method call completed');
+    } catch (e) {
+      print('[ImprovWifi] ERROR in connectToDevice: $e');
+      rethrow;
+    }
   }
 
   /// Disconnect from the currently connected device.

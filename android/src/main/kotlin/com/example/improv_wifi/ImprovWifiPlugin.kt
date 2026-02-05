@@ -1,17 +1,20 @@
 package com.example.improv_wifi
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import com.wifi.improv.ImprovManager
-import com.wifi.improv.ImprovManagerCallback
-import com.wifi.improv.ImprovDevice
-import com.wifi.improv.DeviceState
-import com.wifi.improv.ErrorState
+// SDK classes are now in the same package
+// import com.wifi.improv.ImprovManager
+// import com.wifi.improv.ImprovManagerCallback
+// import com.wifi.improv.ImprovDevice
+// import com.wifi.improv.DeviceState
+// import com.wifi.improv.ErrorState
 
 class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
     private lateinit var methodChannel: MethodChannel
@@ -19,6 +22,7 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
     private var eventSink: EventChannel.EventSink? = null
     private var context: Context? = null
     private var improvManager: ImprovManager? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     // State tracking
     private val foundDevices = mutableMapOf<String, ImprovDevice>()
@@ -96,18 +100,26 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
                 result.success(null)
             }
             "connectToDevice" -> {
+                android.util.Log.d("ImprovWifiPlugin", "=== connectToDevice method called ===")
                 val deviceId = call.argument<String>("deviceId")
+                android.util.Log.d("ImprovWifiPlugin", "deviceId: $deviceId")
                 if (deviceId == null) {
+                    android.util.Log.e("ImprovWifiPlugin", "deviceId is null!")
                     result.error("INVALID_ARGUMENTS", "deviceId is required", null)
                     return
                 }
                 val device = foundDevices[deviceId]
+                android.util.Log.d("ImprovWifiPlugin", "device found in foundDevices: ${device != null}")
+                android.util.Log.d("ImprovWifiPlugin", "foundDevices contains: ${foundDevices.keys}")
                 if (device == null) {
+                    android.util.Log.e("ImprovWifiPlugin", "Device not found in foundDevices!")
                     result.error("DEVICE_NOT_FOUND", "Device with id $deviceId not found", null)
                     return
                 }
+                android.util.Log.i("ImprovWifiPlugin", "Calling improvManager.connectToDevice for ${device.name} (${device.address})")
                 improvManager?.connectToDevice(device)
                 result.success(null)
+                android.util.Log.d("ImprovWifiPlugin", "connectToDevice completed successfully")
             }
             "disconnectDevice" -> {
                 // Note: The Android SDK doesn't have a disconnectDevice method exposed
@@ -156,8 +168,11 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
     }
 
     private fun ensureManagerInitialized() {
+        android.util.Log.d("ImprovWifiPlugin", "ensureManagerInitialized: improvManager=${improvManager != null}, context=${context != null}")
         if (improvManager == null && context != null) {
+            android.util.Log.i("ImprovWifiPlugin", "Creating new ImprovManager instance")
             improvManager = ImprovManager(context!!, callback)
+            android.util.Log.i("ImprovWifiPlugin", "ImprovManager created successfully")
         }
     }
 
@@ -180,7 +195,10 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
             "lastResult" to lastResult
         )
 
-        sink.success(state)
+        // CRITICAL: EventChannel must be called on the main thread
+        mainHandler.post {
+            sink.success(state)
+        }
     }
 
     private fun deviceStateToString(state: DeviceState?): String? {
