@@ -1,3 +1,6 @@
 [submodule "ios/improv_wifi/sdk-iOS"]
 	path = ios/improv_wifi/sdk-iOS
 	url = https://github.com/improv-wifi/sdk-iOS.git
+[submodule "android/sdk-android"]
+	path = android/sdk-android
+	url = https://github.com/improv-wifi/sdk-android.git
