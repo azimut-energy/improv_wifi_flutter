@@ -48,5 +48,6 @@ android {
     dependencies {
         // SDK classes are now included directly in the plugin source
         // No external dependency needed
+        implementation "androidx.core:core-ktx:1.12.0"
     }
 }

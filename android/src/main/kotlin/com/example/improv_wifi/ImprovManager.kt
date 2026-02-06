@@ -7,6 +7,8 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Log
 import java.util.*
@@ -119,6 +121,7 @@ class ImprovManager(
                     Log.w(TAG, "Successfully disconnected from $deviceAddress")
                     gatt.close()
                     bluetoothGatt = null
+                    clearOperationQueue()
                     callback.onConnectionStateChange(null)
                 }
             } else {
@@ -141,6 +144,7 @@ class ImprovManager(
 
                 gatt.close()
                 bluetoothGatt = null
+                clearOperationQueue()
                 callback.onConnectionStateChange(null)
             }
 
@@ -299,6 +303,7 @@ class ImprovManager(
 
         override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
             Log.d(TAG, "MTU change to $mtu returned status: $status")
+            handler.removeCallbacksAndMessages(null)
             if (pendingOperation is RequestLargeMtu)
                 signalEndOfOperation()
         }
@@ -319,6 +324,9 @@ class ImprovManager(
 
     fun findDevices() {
         Log.i(TAG, "Find Devices")
+        if (isScanning) {
+            scanner.stopScan(scanCallback)
+        }
         isScanning = true
         callback.onScanningStateChange(true)
         scanner.startScan(listOf(scanFilter), scanSettings, scanCallback)
@@ -428,6 +436,7 @@ class ImprovManager(
 
     private val operationQueue = ConcurrentLinkedQueue<BleOperationType>()
     private var pendingOperation: BleOperationType? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     @Synchronized
     private fun enqueueOperation(operation: BleOperationType) {
@@ -488,7 +497,7 @@ class ImprovManager(
                 lastConnectionAttemptTime = currentTime
 
                 try {
-                    val gatt = operation.device.connectGatt(context, false, gattCallback)
+                    val gatt = operation.device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
                     Log.d(TAG, "  connectGatt() returned: ${if(gatt != null) "BluetoothGatt instance" else "NULL (FAILED)"}")
                     if (gatt == null) {
                         Log.e(TAG, "  connectGatt returned null! This indicates an immediate failure.")
@@ -533,8 +542,16 @@ class ImprovManager(
             is RequestLargeMtu -> {
                 if (bluetoothGatt != null) {
                     bluetoothGatt!!.requestMtu(517)
+                    // Timeout: if onMtuChanged never fires, unblock the queue
+                    handler.postDelayed({
+                        if (pendingOperation is RequestLargeMtu) {
+                            Log.w(TAG, "MTU request timed out after 5s, proceeding with default MTU")
+                            signalEndOfOperation()
+                        }
+                    }, 5000)
                 } else {
                     Log.e(TAG, "Tried requesting MTU without device connected.")
+                    signalEndOfOperation()
                 }
             }
             else -> {
@@ -550,6 +567,14 @@ class ImprovManager(
         if (operationQueue.isNotEmpty()) {
             doNextOperation()
         }
+    }
+
+    @Synchronized
+    private fun clearOperationQueue() {
+        Log.d(TAG, "Clearing operation queue (pending: $pendingOperation, queued: ${operationQueue.size})")
+        handler.removeCallbacksAndMessages(null)
+        operationQueue.clear()
+        pendingOperation = null
     }
 
     private fun getGattErrorString(status: Int): String {

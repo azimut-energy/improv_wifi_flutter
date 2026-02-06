@@ -1,14 +1,22 @@
 package com.example.improv_wifi
 
+import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import io.flutter.plugin.common.PluginRegistry
 // SDK classes are now in the same package
 // import com.wifi.improv.ImprovManager
 // import com.wifi.improv.ImprovManagerCallback
@@ -16,13 +24,22 @@ import io.flutter.plugin.common.MethodChannel.Result
 // import com.wifi.improv.DeviceState
 // import com.wifi.improv.ErrorState
 
-class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
+class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler,
+    ActivityAware, PluginRegistry.RequestPermissionsResultListener {
+
+    companion object {
+        private const val REQUEST_BLE_PERMISSIONS = 1001
+    }
+
     private lateinit var methodChannel: MethodChannel
     private lateinit var eventChannel: EventChannel
     private var eventSink: EventChannel.EventSink? = null
     private var context: Context? = null
+    private var activity: Activity? = null
+    private var activityBinding: ActivityPluginBinding? = null
     private var improvManager: ImprovManager? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingScanResult: Result? = null
 
     // State tracking
     private val foundDevices = mutableMapOf<String, ImprovDevice>()
@@ -90,10 +107,7 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "startScan" -> {
-                ensureManagerInitialized()
-                foundDevices.clear()
-                improvManager?.findDevices()
-                result.success(null)
+                handleStartScan(result)
             }
             "stopScan" -> {
                 improvManager?.stopScan()
@@ -221,5 +235,90 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
             ErrorState.UNKNOWN -> "unknown"
             null -> null
         }
+    }
+
+    // --- BLE permission handling ---
+
+    private fun requiredPermissions(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                android.Manifest.permission.BLUETOOTH_SCAN,
+                android.Manifest.permission.BLUETOOTH_CONNECT
+            )
+        } else {
+            arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    private fun hasPermissions(): Boolean {
+        val ctx = context ?: return false
+        return requiredPermissions().all {
+            ContextCompat.checkSelfPermission(ctx, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun handleStartScan(result: Result) {
+        if (hasPermissions()) {
+            doStartScan(result)
+            return
+        }
+        val act = activity
+        if (act == null) {
+            result.error("PERMISSION_DENIED", "No activity available to request permissions", null)
+            return
+        }
+        pendingScanResult = result
+        ActivityCompat.requestPermissions(act, requiredPermissions(), REQUEST_BLE_PERMISSIONS)
+    }
+
+    private fun doStartScan(result: Result) {
+        ensureManagerInitialized()
+        foundDevices.clear()
+        improvManager?.findDevices()
+        result.success(null)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ): Boolean {
+        if (requestCode != REQUEST_BLE_PERMISSIONS) return false
+        val result = pendingScanResult ?: return false
+        pendingScanResult = null
+
+        val allGranted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+        if (allGranted) {
+            doStartScan(result)
+        } else {
+            result.error("PERMISSION_DENIED", "BLE permissions were denied by the user", null)
+        }
+        return true
+    }
+
+    // --- ActivityAware lifecycle ---
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+        activityBinding = binding
+        binding.addRequestPermissionsResultListener(this)
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        activityBinding?.removeRequestPermissionsResultListener(this)
+        activity = null
+        activityBinding = null
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activity = binding.activity
+        activityBinding = binding
+        binding.addRequestPermissionsResultListener(this)
+    }
+
+    override fun onDetachedFromActivity() {
+        activityBinding?.removeRequestPermissionsResultListener(this)
+        activity = null
+        activityBinding = null
     }
 }
