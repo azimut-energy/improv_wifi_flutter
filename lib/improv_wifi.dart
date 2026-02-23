@@ -153,9 +153,9 @@ class ImprovState {
 /// Flutter plugin for Improv WiFi provisioning.
 class ImprovWifi {
   static const MethodChannel _methodChannel =
-      MethodChannel('com.example.improv_wifi/methods');
+      MethodChannel('be.azimut.improv_wifi/methods');
   static const EventChannel _eventChannel =
-      EventChannel('com.example.improv_wifi/state');
+      EventChannel('be.azimut.improv_wifi/state');
 
   static Stream<ImprovState>? _stateStream;
 

@@ -15,7 +15,7 @@ import CoreLocation
     GeneratedPluginRegistrant.register(with: self)
     let registrar = self.registrar(forPlugin: "WifiInfoPlugin")!
     let channel = FlutterMethodChannel(
-      name: "com.example.improv_wifi_example/wifi_info",
+      name: "be.azimut.improv_wifi_example/wifi_info",
       binaryMessenger: registrar.messenger()
     )
     channel.setMethodCallHandler { [weak self] call, result in

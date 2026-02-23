@@ -1,4 +1,4 @@
-package com.example.improv_wifi
+package be.azimut.improv_wifi
 
 enum class ErrorState(val value: UByte) {
     NO_ERROR(0.toUByte()),

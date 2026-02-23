@@ -1,4 +1,4 @@
-package com.example.improv_wifi
+package be.azimut.improv_wifi
 
 enum class DeviceState(val value: UByte) {
     AUTHORIZATION_REQUIRED(1.toUByte()),

@@ -34,7 +34,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.example.improv_wifi
+        package: be.azimut.improv_wifi
         pluginClass: ImprovWifiPlugin
       ios:
         pluginClass: ImprovWifiPlugin

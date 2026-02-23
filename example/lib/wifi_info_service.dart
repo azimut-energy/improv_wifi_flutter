@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 /// Gets current WiFi SSID via platform channel (no extra dependencies).
 class WifiInfoService {
   static const _channel = MethodChannel(
-    'com.example.improv_wifi_example/wifi_info',
+    'be.azimut.improv_wifi_example/wifi_info',
   );
 
   /// Returns the current WiFi SSID, or null if unavailable (e.g. not on WiFi,

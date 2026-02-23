@@ -15,11 +15,11 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let methodChannel = FlutterMethodChannel(
-            name: "com.example.improv_wifi/methods",
+            name: "be.azimut.improv_wifi/methods",
             binaryMessenger: registrar.messenger()
         )
         let eventChannel = FlutterEventChannel(
-            name: "com.example.improv_wifi/state",
+            name: "be.azimut.improv_wifi/state",
             binaryMessenger: registrar.messenger()
         )
 

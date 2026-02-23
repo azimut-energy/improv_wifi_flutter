@@ -1,4 +1,4 @@
-package com.example.improv_wifi
+package be.azimut.improv_wifi
 
 import android.app.Activity
 import android.content.Context
@@ -90,10 +90,10 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
 
-        methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.example.improv_wifi/methods")
+        methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "be.azimut.improv_wifi/methods")
         methodChannel.setMethodCallHandler(this)
 
-        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "com.example.improv_wifi/state")
+        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "be.azimut.improv_wifi/state")
         eventChannel.setStreamHandler(this)
     }
 

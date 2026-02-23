@@ -1,4 +1,4 @@
-package com.example.improv_wifi
+package be.azimut.improv_wifi
 
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattCharacteristic

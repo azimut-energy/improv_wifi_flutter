@@ -1,4 +1,4 @@
-package com.example.improv_wifi_example
+package be.azimut.improv_wifi_example
 
 import android.Manifest
 import android.content.Context
@@ -13,7 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val channelName = "com.example.improv_wifi_example/wifi_info"
+    private val channelName = "be.azimut.improv_wifi_example/wifi_info"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
