@@ -12,7 +12,7 @@ If you discover a security vulnerability, please report it responsibly.
 
 **Do not open a public issue.**
 
-Instead, email **info@azimut.energy** with:
+Instead, email **fcar@azimut.be** with:
 
 - A description of the vulnerability
 - Steps to reproduce
