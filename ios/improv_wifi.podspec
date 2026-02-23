@@ -9,9 +9,9 @@ Pod::Spec.new do |s|
   s.description      = <<-DESC
 A Flutter plugin that wraps the Improv WiFi iOS SDK for BLE-based WiFi provisioning.
                        DESC
-  s.homepage         = 'http://example.com'
-  s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.homepage         = 'https://github.com/azimut-energy/improv_wifi_flutter'
+  s.license          = { :type => 'Apache 2.0', :file => '../LICENSE' }
+  s.author           = { 'Azimut Energy' => 'info@azimut.energy' }
   s.source           = { :path => '.' }
   s.source_files = 'improv_wifi/Sources/improv_wifi/**/*'
   s.dependency 'Flutter'

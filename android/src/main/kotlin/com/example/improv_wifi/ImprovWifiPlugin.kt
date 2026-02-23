@@ -114,26 +114,18 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
                 result.success(null)
             }
             "connectToDevice" -> {
-                android.util.Log.d("ImprovWifiPlugin", "=== connectToDevice method called ===")
                 val deviceId = call.argument<String>("deviceId")
-                android.util.Log.d("ImprovWifiPlugin", "deviceId: $deviceId")
                 if (deviceId == null) {
-                    android.util.Log.e("ImprovWifiPlugin", "deviceId is null!")
                     result.error("INVALID_ARGUMENTS", "deviceId is required", null)
                     return
                 }
                 val device = foundDevices[deviceId]
-                android.util.Log.d("ImprovWifiPlugin", "device found in foundDevices: ${device != null}")
-                android.util.Log.d("ImprovWifiPlugin", "foundDevices contains: ${foundDevices.keys}")
                 if (device == null) {
-                    android.util.Log.e("ImprovWifiPlugin", "Device not found in foundDevices!")
                     result.error("DEVICE_NOT_FOUND", "Device with id $deviceId not found", null)
                     return
                 }
-                android.util.Log.i("ImprovWifiPlugin", "Calling improvManager.connectToDevice for ${device.name} (${device.address})")
                 improvManager?.connectToDevice(device)
                 result.success(null)
-                android.util.Log.d("ImprovWifiPlugin", "connectToDevice completed successfully")
             }
             "disconnectDevice" -> {
                 // Note: The Android SDK doesn't have a disconnectDevice method exposed
@@ -182,11 +174,8 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
     }
 
     private fun ensureManagerInitialized() {
-        android.util.Log.d("ImprovWifiPlugin", "ensureManagerInitialized: improvManager=${improvManager != null}, context=${context != null}")
         if (improvManager == null && context != null) {
-            android.util.Log.i("ImprovWifiPlugin", "Creating new ImprovManager instance")
             improvManager = ImprovManager(context!!, callback)
-            android.util.Log.i("ImprovWifiPlugin", "ImprovManager created successfully")
         }
     }
 
