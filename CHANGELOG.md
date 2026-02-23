@@ -1,3 +1,5 @@
 ## 0.0.1
 
-* TODO: Describe initial release.
+* Initial release with BLE-based Improv WiFi provisioning for Android and iOS.
+* Device scanning, connection, and WiFi credential provisioning.
+* Real-time state updates via EventChannel.
