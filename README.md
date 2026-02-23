@@ -8,7 +8,7 @@ The iOS implementation uses the [Improv WiFi iOS SDK](https://github.com/improv-
 
 **Clone with submodules:**
 ```bash
-git clone --recurse-submodules <repo-url>
+git clone --recurse-submodules https://github.com/azimut-energy/improv_wifi_flutter.git
 ```
 
 **If you already cloned:**

@@ -103,7 +103,6 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             manager.$lastResult
         )
         .removeDuplicates { prev, curr in
-            print("prev: \(prev), curr: \(curr)")
             // Compare all values to detect actual changes
             let (prevGroup1, prevGroup2, prevLastResult) = prev
             let (currGroup1, currGroup2, currLastResult) = curr
