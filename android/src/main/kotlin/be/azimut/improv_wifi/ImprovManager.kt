@@ -266,6 +266,10 @@ class ImprovManager(
 
     }
 
+    fun disconnectDevice() {
+        bluetoothGatt?.disconnect()
+    }
+
     fun sendWifi(ssid: String, password: String) {
         if (bluetoothGatt == null) {
             error("Not Connected to a Device!")

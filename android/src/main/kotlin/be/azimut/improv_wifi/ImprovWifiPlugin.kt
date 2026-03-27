@@ -128,8 +128,7 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
                 result.success(null)
             }
             "disconnectDevice" -> {
-                // Note: The Android SDK doesn't have a disconnectDevice method exposed
-                // We reset the state
+                improvManager?.disconnectDevice()
                 connectedDevice = null
                 currentDeviceState = null
                 currentErrorState = null
@@ -171,6 +170,10 @@ class ImprovWifiPlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHa
 
     override fun onCancel(arguments: Any?) {
         eventSink = null
+
+        // Clean up BLE connection when stream is cancelled (e.g. page dispose)
+        improvManager?.disconnectDevice()
+        improvManager?.stopScan()
     }
 
     private fun ensureManagerInitialized() {
