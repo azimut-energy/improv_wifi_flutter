@@ -7,6 +7,7 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
@@ -37,7 +38,7 @@ class ImprovManager(
 
     private val bluetoothManager: BluetoothManager =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val scanner = bluetoothManager.adapter.bluetoothLeScanner
+    private val scanner get() = bluetoothManager.adapter?.bluetoothLeScanner
     private val scanFilter =
         ScanFilter.Builder().setServiceUuid(ParcelUuid(UUID_SERVICE_PROVISION)).build()
     private val scanSettings =
@@ -64,6 +65,19 @@ class ImprovManager(
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     connectionAttemptCount = 0
                     bluetoothGatt = gatt
+
+                    // Clear Android's GATT cache to force fresh service discovery.
+                    // Without this, Android reuses stale cached GATT handles which
+                    // causes "value 18" reads and "status 3" descriptor write failures
+                    // on devices like the Moto E13 (Android 13).
+                    try {
+                        val refresh = gatt.javaClass.getMethod("refresh")
+                        val result = refresh.invoke(gatt) as Boolean
+                        Log.d(TAG, "GATT cache refresh: $result")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "GATT cache refresh not available: ${e.message}")
+                    }
+
                     callback.onConnectionStateChange(
                         ImprovDevice(gatt.device.name, gatt.device.address)
                     )
@@ -87,31 +101,49 @@ class ImprovManager(
                 signalEndOfOperation()
         }
 
+        // API 33+ callback — value passed directly (reliable)
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            handleCharacteristicValue(characteristic.uuid, value)
+        }
+
+        // Pre-API 33 callback — reads value from characteristic object
+        @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic
         ) {
-            when (characteristic.uuid) {
+            // Only used on Android < 13; on 13+ the ByteArray overload is called
+            handleCharacteristicValue(characteristic.uuid, characteristic.value)
+        }
+
+        private fun handleCharacteristicValue(uuid: UUID, value: ByteArray?) {
+            if (value == null || value.isEmpty()) {
+                Log.e(TAG, "Characteristic $uuid has null/empty value")
+                return
+            }
+            when (uuid) {
                 UUID_CHAR_CURRENT_STATE -> {
-                    val value =
-                        characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
-                    val deviceState = DeviceState.values().firstOrNull { it.value == value }
+                    val intValue = value[0].toUByte()
+                    val deviceState = DeviceState.values().firstOrNull { it.value == intValue }
                     if (deviceState != null)
                         callback.onStateChange(deviceState)
                     else
-                        Log.e(TAG, "Unable to determine Current State from value $value")
+                        Log.e(TAG, "Unable to determine Current State from value $intValue")
                 }
                 UUID_CHAR_ERROR_STATE -> {
-                    val value =
-                        characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0).toUByte()
-                    val errorState = ErrorState.values().firstOrNull { it.value == value }
+                    val intValue = value[0].toUByte()
+                    val errorState = ErrorState.values().firstOrNull { it.value == intValue }
                     if (errorState != null)
                         callback.onErrorStateChange(errorState)
                     else
-                        Log.e(TAG, "Unable to determine Error State from value $value")
+                        Log.e(TAG, "Unable to determine Error State from value $intValue")
                 }
                 UUID_CHAR_RPC_RESULT -> {
-                    val result = extractResultStrings(characteristic.value)
+                    val result = extractResultStrings(value)
                     if (result != null)
                         callback.onRpcResult(result)
                 }
@@ -130,13 +162,31 @@ class ImprovManager(
                 signalEndOfOperation()
         }
 
+        // API 33+ callback
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                handleCharacteristicValue(characteristic.uuid, value)
+            } else {
+                Log.e(TAG, "Characteristic ${characteristic.uuid} read failed with status $status")
+            }
+            if (pendingOperation is CharacteristicRead)
+                signalEndOfOperation()
+        }
+
+        // Pre-API 33 callback
+        @Suppress("DEPRECATION")
         override fun onCharacteristicRead(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                onCharacteristicChanged(gatt, characteristic)
+                handleCharacteristicValue(characteristic.uuid, characteristic.value)
             } else {
                 Log.e(TAG, "Characteristic ${characteristic.uuid} read failed with status $status")
             }
@@ -166,37 +216,19 @@ class ImprovManager(
             if ((currentStateChar.properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
                 enqueueOperation(CharacteristicRead(currentStateChar))
             }
-            if (gatt.setCharacteristicNotification(currentStateChar, true)) {
-                currentStateChar.descriptors.firstOrNull()?.let {
-                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    enqueueOperation(DescriptorWrite(it))
-                }
-            } else
-                Log.e(TAG, "Unable to register for Current State notifications")
+            enableNotifications(gatt, currentStateChar, "Current State")
 
             val errorStateChar = service.getCharacteristic(UUID_CHAR_ERROR_STATE)
             if ((errorStateChar.properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
                 enqueueOperation(CharacteristicRead(errorStateChar))
             }
-            if (gatt.setCharacteristicNotification(errorStateChar, true)) {
-                errorStateChar.descriptors.firstOrNull()?.let {
-                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    enqueueOperation(DescriptorWrite(it))
-                }
-            } else
-                Log.e(TAG, "Unable to register for Error State notifications")
+            enableNotifications(gatt, errorStateChar, "Error State")
 
             val rpcResultChar = service.getCharacteristic(UUID_CHAR_RPC_RESULT)
             if ((rpcResultChar.properties and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
                 enqueueOperation(CharacteristicRead(rpcResultChar))
             }
-            if (gatt.setCharacteristicNotification(rpcResultChar, true)) {
-                rpcResultChar.descriptors.firstOrNull()?.let {
-                    it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    enqueueOperation(DescriptorWrite(it))
-                }
-            } else
-                Log.e(TAG, "Unable to register for RPC Result notifications")
+            enableNotifications(gatt, rpcResultChar, "RPC Result")
 
             if (pendingOperation is DiscoverServices)
                 signalEndOfOperation()
@@ -216,19 +248,24 @@ class ImprovManager(
 
     fun stopScan() {
         if (isScanning) {
-            scanner.stopScan(scanCallback)
+            scanner?.stopScan(scanCallback)
             callback.onScanningStateChange(false)
         }
         isScanning = false
     }
 
     fun findDevices() {
+        val sc = scanner
+        if (sc == null) {
+            Log.e(TAG, "BluetoothLeScanner not available (Bluetooth off?)")
+            return
+        }
         if (isScanning) {
-            scanner.stopScan(scanCallback)
+            sc.stopScan(scanCallback)
         }
         isScanning = true
         callback.onScanningStateChange(true)
-        scanner.startScan(listOf(scanFilter), scanSettings, scanCallback)
+        sc.startScan(listOf(scanFilter), scanSettings, scanCallback)
     }
 
     fun connectToDevice(device: ImprovDevice) {
@@ -289,8 +326,19 @@ class ImprovManager(
     private fun sendRpc(rpc: BluetoothGattCharacteristic, command: RpcCommand, data: Array<UByte>) {
         val payload = arrayOf(command.value, data.size.toUByte()) + data + 0.toUByte()
         payload[payload.size - 1] = payload.reduce { sum, cur -> (sum + cur).toUByte() }
-        rpc.value = payload.toUByteArray().toByteArray()
-        enqueueOperation(CharacteristicWrite(rpc))
+        val bytes = payload.toUByteArray().toByteArray()
+        enqueueOperation(CharacteristicWrite(rpc, bytes))
+    }
+
+    @SuppressLint("NewApi")
+    private fun enableNotifications(gatt: BluetoothGatt, char: BluetoothGattCharacteristic, name: String) {
+        if (gatt.setCharacteristicNotification(char, true)) {
+            char.descriptors.firstOrNull()?.let { desc ->
+                enqueueOperation(DescriptorWrite(desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE))
+            }
+        } else {
+            Log.e(TAG, "Unable to register for $name notifications")
+        }
     }
 
     private fun extractResultStrings(data: ByteArray): List<String>? {
@@ -367,7 +415,18 @@ class ImprovManager(
             }
             is CharacteristicWrite -> {
                 if (bluetoothGatt != null) {
-                    bluetoothGatt!!.writeCharacteristic(operation.char)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        bluetoothGatt!!.writeCharacteristic(
+                            operation.char,
+                            operation.data,
+                            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        operation.char.value = operation.data
+                        @Suppress("DEPRECATION")
+                        bluetoothGatt!!.writeCharacteristic(operation.char)
+                    }
                 } else {
                     Log.e(TAG, "Tried writing characteristic without device connected.")
                 }
@@ -381,7 +440,14 @@ class ImprovManager(
             }
             is DescriptorWrite -> {
                 if (bluetoothGatt != null) {
-                    bluetoothGatt!!.writeDescriptor(operation.desc)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        bluetoothGatt!!.writeDescriptor(operation.desc, operation.data)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        operation.desc.value = operation.data
+                        @Suppress("DEPRECATION")
+                        bluetoothGatt!!.writeDescriptor(operation.desc)
+                    }
                 } else {
                     Log.e(TAG, "Tried writing descriptor without device connected.")
                 }
