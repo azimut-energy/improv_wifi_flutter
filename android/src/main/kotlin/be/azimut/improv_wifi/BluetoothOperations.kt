@@ -13,7 +13,7 @@ object DiscoverServices: BleOperationType()
 object RequestLargeMtu: BleOperationType()
 
 data class CharacteristicRead(val char: BluetoothGattCharacteristic) : BleOperationType()
-data class CharacteristicWrite(val char: BluetoothGattCharacteristic) : BleOperationType()
+data class CharacteristicWrite(val char: BluetoothGattCharacteristic, val data: ByteArray) : BleOperationType()
 
 data class DescriptorRead(val desc: BluetoothGattDescriptor) : BleOperationType()
-data class DescriptorWrite(val desc: BluetoothGattDescriptor) : BleOperationType()
+data class DescriptorWrite(val desc: BluetoothGattDescriptor, val data: ByteArray) : BleOperationType()

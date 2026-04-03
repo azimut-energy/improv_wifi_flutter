@@ -81,6 +81,13 @@ public class ImprovWifiPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         eventSink = nil
         cancellables.removeAll()
+
+        // Clean up BLE connection when stream is cancelled (e.g. page dispose)
+        if let peripheral = ImprovManager.shared.connectedDevice {
+            ImprovManager.shared.disconnectFromDevice(peripheral)
+        }
+        ImprovManager.shared.stopScan()
+
         return nil
     }
 
