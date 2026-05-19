@@ -1,10 +1,10 @@
 name: improv_wifi
 description: "Flutter plugin for Improv WiFi provisioning via BLE."
-version: 0.0.1
+version: 0.1.0
 homepage: https://github.com/azimut-energy/improv_wifi_flutter
 
 environment:
-  sdk: ^3.10.7
+  sdk: ">=3.9.0 <4.0.0"
   flutter: '>=3.3.0'
 
 dependencies:
